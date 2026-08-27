@@ -1,0 +1,7 @@
+services:
+  cyberintel:
+    build: .
+    container_name: cyberintel-backend
+    ports:
+      - "8000:8000"
+    restart: unless-stopped

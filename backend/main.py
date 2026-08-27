@@ -36,7 +36,7 @@ app = FastAPI(
 # ==========================================================
 
 FRONTEND_DIR = (
-    Path(__file__).resolve().parent.parent / "frontend"
+    Path(__file__).resolve().parent.parent / "frontend" / "dist"
 )
 
 
@@ -464,7 +464,7 @@ async def predict_csv(
 # ==========================================================
 
 app.mount(
-    "/frontend",
+    "/",
     StaticFiles(
         directory=FRONTEND_DIR,
         html=True
