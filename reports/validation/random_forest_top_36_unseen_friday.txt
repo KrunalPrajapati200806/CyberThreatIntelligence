@@ -1,0 +1,36 @@
+Random Forest — Top 36 Features — Unseen Friday Validation
+============================================================
+
+Test dataset: unseen_friday_test.csv
+Model: random_forest_top_36.joblib
+Selected features: 36
+Dataset size: 60,000
+
+Accuracy : 0.9979
+Precision: 0.9994
+Recall   : 0.9963
+F1 Score : 0.9978
+
+Confusion Matrix
+------------------------------
+[[29982    18]
+ [  111 29889]]
+
+True Negatives : 29982
+False Positives: 18
+False Negatives: 111
+True Positives : 29889
+
+False Positive Rate: 0.000600
+False Negative Rate: 0.003700
+
+Classification Report
+------------------------------
+              precision    recall  f1-score   support
+
+      BENIGN     0.9963    0.9994    0.9979     30000
+      ATTACK     0.9994    0.9963    0.9978     30000
+
+    accuracy                         0.9979     60000
+   macro avg     0.9979    0.9978    0.9978     60000
+weighted avg     0.9979    0.9979    0.9978     60000

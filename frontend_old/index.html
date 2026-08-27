@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Cyber Threat Intelligence</title>
+
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+    <!-- ============================= -->
+    <!-- SIDEBAR -->
+    <!-- ============================= -->
+
+    <aside class="sidebar">
+
+        <div class="brand">
+            <div class="brand-icon">CT</div>
+
+            <div>
+                <h1>CyberIntel</h1>
+                <span>Threat Intelligence</span>
+            </div>
+        </div>
+
+
+        <nav class="navigation">
+
+            <button class="nav-item active">
+                <span class="nav-icon">◉</span>
+                Dashboard
+            </button>
+
+            <button class="nav-item">
+                <span class="nav-icon">◈</span>
+                Traffic Analysis
+            </button>
+
+            <button class="nav-item">
+                <span class="nav-icon">⚠</span>
+                Threat Detection
+            </button>
+
+            <button class="nav-item">
+                <span class="nav-icon">▣</span>
+                Reports
+            </button>
+
+        </nav>
+
+
+        <div class="sidebar-bottom">
+
+            <div class="system-status">
+                <span class="status-dot"></span>
+
+                <div>
+                    <strong>System Online</strong>
+                    <small>ML Engine Active</small>
+                </div>
+            </div>
+
+            <div class="version">
+                v1.0.0
+            </div>
+
+        </div>
+
+    </aside>
+
+
+    <!-- ============================= -->
+    <!-- MAIN CONTENT -->
+    <!-- ============================= -->
+
+    <main class="main-content">
+
+        <!-- TOP BAR -->
+
+        <header class="topbar">
+
+            <div>
+                <h2>Security Dashboard</h2>
+
+                <p>
+                    Network traffic intelligence and attack detection
+                </p>
+            </div>
+
+
+            <div class="topbar-right">
+
+                <div class="api-status">
+
+                    <span class="status-dot"></span>
+
+                    <div>
+                        <strong>API Online</strong>
+                        <small>127.0.0.1:8000</small>
+                    </div>
+
+                </div>
+
+                <button class="refresh-btn" id="refreshBtn">
+                    ↻ Refresh
+                </button>
+
+            </div>
+
+        </header>
+
+
+        <!-- ============================= -->
+        <!-- KPI CARDS -->
+        <!-- ============================= -->
+
+        <section class="stats-grid">
+
+
+            <div class="stat-card">
+
+                <div class="stat-header">
+                    <span>Total Flows</span>
+                    <div class="stat-icon blue">↗</div>
+                </div>
+
+                <div class="stat-value" id="totalFlows">
+                    0
+                </div>
+
+                <div class="stat-description">
+                    Network flows analyzed
+                </div>
+
+            </div>
+
+
+            <div class="stat-card">
+
+                <div class="stat-header">
+                    <span>Threats Detected</span>
+                    <div class="stat-icon red">⚠</div>
+                </div>
+
+                <div class="stat-value danger" id="threatsDetected">
+                    0
+                </div>
+
+                <div class="stat-description">
+                    Malicious network activity
+                </div>
+
+            </div>
+
+
+            <div class="stat-card">
+
+                <div class="stat-header">
+                    <span>Benign Traffic</span>
+                    <div class="stat-icon green">✓</div>
+                </div>
+
+                <div class="stat-value success" id="benignTraffic">
+                    0
+                </div>
+
+                <div class="stat-description">
+                    Normal network traffic
+                </div>
+
+            </div>
+
+
+            <div class="stat-card">
+
+                <div class="stat-header">
+                    <span>Attack Rate</span>
+                    <div class="stat-icon orange">%</div>
+                </div>
+
+                <div class="stat-value" id="attackRate">
+                    0%
+                </div>
+
+                <div class="stat-description">
+                    Percentage of malicious flows
+                </div>
+
+            </div>
+
+        </section>
+
+
+        <!-- ============================= -->
+        <!-- MAIN ANALYSIS AREA -->
+        <!-- ============================= -->
+
+        <section class="dashboard-grid">
+
+
+            <!-- FILE UPLOAD -->
+
+            <div class="panel upload-panel">
+
+                <div class="panel-header">
+
+                    <div>
+                        <h3>Traffic Analysis</h3>
+
+                        <p>
+                            Upload a CIC-IDS2017 compatible CSV dataset
+                        </p>
+                    </div>
+
+                </div>
+
+
+                <div class="upload-area" id="uploadArea">
+
+                    <div class="upload-icon">
+                        ↑
+                    </div>
+
+                    <h4>
+                        Upload Network Traffic CSV
+                    </h4>
+
+                    <p>
+                        Drag and drop your CSV file here
+                    </p>
+
+                    <span>
+                        or
+                    </span>
+
+                    <label for="fileInput" class="upload-button">
+                        Choose CSV File
+                    </label>
+
+                    <input
+                        type="file"
+                        id="fileInput"
+                        accept=".csv"
+                        hidden
+                    >
+
+                    <div class="selected-file" id="selectedFile">
+                        No file selected
+                    </div>
+
+                </div>
+
+
+                <button
+                    class="analyze-button"
+                    id="analyzeBtn"
+                    disabled
+                >
+                    Analyze Traffic
+                </button>
+
+
+                <div
+                    class="loading-container"
+                    id="loadingContainer"
+                    hidden
+                >
+
+                    <div class="spinner"></div>
+
+                    <span>
+                        Analyzing network traffic...
+                    </span>
+
+                </div>
+
+
+                <div
+                    class="error-message"
+                    id="errorMessage"
+                    hidden
+                ></div>
+
+            </div>
+
+
+            <!-- THREAT DISTRIBUTION -->
+
+            <div class="panel threat-panel">
+
+                <div class="panel-header">
+
+                    <div>
+                        <h3>Threat Distribution</h3>
+
+                        <p>
+                            Detected attack categories
+                        </p>
+                    </div>
+
+                </div>
+
+
+                <div
+                    class="empty-state"
+                    id="emptyThreatState"
+                >
+
+                    <div class="empty-icon">
+                        ◈
+                    </div>
+
+                    <p>
+                        No threat data available
+                    </p>
+
+                    <small>
+                        Upload a CSV file to analyze traffic
+                    </small>
+
+                </div>
+
+
+                <div
+                    class="threat-list"
+                    id="threatList"
+                    hidden
+                ></div>
+
+            </div>
+
+        </section>
+
+
+        <!-- ============================= -->
+        <!-- ANALYSIS SUMMARY -->
+        <!-- ============================= -->
+
+        <section class="panel summary-panel">
+
+            <div class="panel-header">
+
+                <div>
+                    <h3>Analysis Summary</h3>
+
+                    <p>
+                        Current traffic intelligence overview
+                    </p>
+                </div>
+
+            </div>
+
+
+            <div class="summary-grid">
+
+
+                <div class="summary-item">
+
+                    <span class="summary-label">
+                        Detection Status
+                    </span>
+
+                    <strong
+                        id="detectionStatus"
+                        class="status-neutral"
+                    >
+                        Waiting for analysis
+                    </strong>
+
+                </div>
+
+
+                <div class="summary-item">
+
+                    <span class="summary-label">
+                        Primary Threat
+                    </span>
+
+                    <strong id="primaryThreat">
+                        —
+                    </strong>
+
+                </div>
+
+
+                <div class="summary-item">
+
+                    <span class="summary-label">
+                        Model
+                    </span>
+
+                    <strong>
+                        Random Forest
+                    </strong>
+
+                </div>
+
+
+                <div class="summary-item">
+
+                    <span class="summary-label">
+                        Classification
+                    </span>
+
+                    <strong>
+                        Multiclass
+                    </strong>
+
+                </div>
+
+            </div>
+
+        </section>
+
+
+        <!-- ============================= -->
+        <!-- RECENT DETECTIONS -->
+        <!-- ============================= -->
+
+        <section class="panel results-panel">
+
+            <div class="panel-header">
+
+                <div>
+                    <h3>Detection Results</h3>
+
+                    <p>
+                        Latest analyzed network flows
+                    </p>
+                </div>
+
+                <span
+                    class="result-count"
+                    id="resultCount"
+                >
+                    0 flows
+                </span>
+
+            </div>
+
+
+            <div class="table-wrapper">
+
+                <table>
+
+                    <thead>
+
+                        <tr>
+                            <th>Flow</th>
+                            <th>Prediction</th>
+                            <th>Classification</th>
+                            <th>Threat Type</th>
+                            <th>Confidence</th>
+                        </tr>
+
+                    </thead>
+
+
+                    <tbody id="resultsTable">
+
+                        <tr>
+
+                            <td
+                                colspan="5"
+                                class="table-empty"
+                            >
+                                No analysis results yet
+                            </td>
+
+                        </tr>
+
+                    </tbody>
+
+                </table>
+
+            </div>
+
+        </section>
+
+
+        <!-- ============================= -->
+        <!-- FOOTER -->
+        <!-- ============================= -->
+
+        <footer>
+
+            <span>
+                Cyber Threat Intelligence & Network Attack Mining
+            </span>
+
+            <span>
+                Powered by FastAPI + Random Forest
+            </span>
+
+        </footer>
+
+    </main>
+
+
+    <script src="app.js"></script>
+
+</body>
+</html>

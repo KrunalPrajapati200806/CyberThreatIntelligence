@@ -1,0 +1,25 @@
+.venv/
+__pycache__/
+*.pyc
+
+# Data
+data/raw/
+data/processed/
+
+# Models
+models/*.pkl
+models/*.joblib
+
+# Environment
+.env
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Node
+node_modules/
+frontend/dist/
+frontend/build/
+# Large validation datasets
+data/validation/*_binary.csv
+data/validation/unseen_friday_test.csv

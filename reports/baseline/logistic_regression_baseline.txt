@@ -1,0 +1,20 @@
+Binary Logistic Regression Baseline
+==================================================
+
+Dataset size: 300,000
+Training size: 240,000
+Testing size: 60,000
+
+Accuracy: 0.9565
+Precision: 0.8773
+Recall: 0.8566
+F1: 0.8669
+
+              precision    recall  f1-score   support
+
+      BENIGN     0.9717    0.9763    0.9740     50074
+      ATTACK     0.8773    0.8566    0.8669      9926
+
+    accuracy                         0.9565     60000
+   macro avg     0.9245    0.9164    0.9204     60000
+weighted avg     0.9561    0.9565    0.9563     60000

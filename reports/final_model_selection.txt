@@ -1,0 +1,78 @@
+FINAL MODEL SELECTION
+============================================================
+
+Project: Cyber Threat Intelligence — Network Attack Detection
+
+Final Model:
+Random Forest with Top 36 Features
+
+Original Model:
+Random Forest with 70 Features
+
+Feature Selection Method:
+Random Forest feature importance ranking.
+
+Reason for Selection:
+The top 36 features account for approximately 90.20%
+of cumulative Random Forest feature importance.
+
+============================================================
+INTERNAL TEST COMPARISON
+============================================================
+
+70 Features
+Accuracy : 0.9985
+Precision: 0.9966
+Recall   : 0.9945
+F1 Score : 0.9955
+
+36 Features
+Accuracy : 0.9987
+Precision: 0.9968
+Recall   : 0.9955
+F1 Score : 0.9961
+
+============================================================
+UNSEEN FRIDAY VALIDATION
+============================================================
+
+70 Features
+Accuracy : 0.9974
+Precision: 0.9993
+Recall   : 0.9955
+F1 Score : 0.9974
+
+False Positive Rate: 0.000667
+False Negative Rate: 0.004500
+
+36 Features
+Accuracy : 0.9979
+Precision: 0.9994
+Recall   : 0.9963
+F1 Score : 0.9978
+
+False Positive Rate: 0.000600
+False Negative Rate: 0.003700
+
+============================================================
+FEATURE REDUCTION
+============================================================
+
+Original features: 70
+Final features:    36
+
+Feature reduction: 48.57%
+
+============================================================
+FINAL DECISION
+============================================================
+
+The Random Forest model using the top 36 features is selected
+as the final candidate model.
+
+The model uses approximately half the original feature set
+while maintaining and improving detection performance on both
+the internal test set and the unseen Friday validation set.
+
+The final model will be used for subsequent deployment and
+API integration.

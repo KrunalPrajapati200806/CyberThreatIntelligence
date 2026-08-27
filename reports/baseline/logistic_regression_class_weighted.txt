@@ -1,0 +1,16 @@
+Binary Class-Weighted Logistic Regression
+==================================================
+
+Accuracy: 0.9378
+Precision: 0.7337
+Recall: 0.9791
+F1: 0.8389
+
+              precision    recall  f1-score   support
+
+      BENIGN     0.9956    0.9296    0.9614     50074
+      ATTACK     0.7337    0.9791    0.8389      9926
+
+    accuracy                         0.9378     60000
+   macro avg     0.8647    0.9544    0.9001     60000
+weighted avg     0.9523    0.9378    0.9412     60000
