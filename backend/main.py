@@ -3297,7 +3297,1106 @@
 
 
 
-import asyncio
+# import asyncio
+# import gc
+# import json
+# import time
+# from io import BytesIO
+# from pathlib import Path
+# from typing import Dict
+
+# import numpy as np
+# import pandas as pd
+
+# from fastapi import (
+#     FastAPI,
+#     HTTPException,
+#     UploadFile,
+#     File,
+#     Request,
+# )
+# from fastapi.middleware.cors import CORSMiddleware
+# from fastapi.responses import FileResponse
+# from fastapi.staticfiles import StaticFiles
+# from pydantic import BaseModel
+
+# from backend.predictor import (
+#     predict_attack,
+#     predict_batch,
+#     get_model_config,
+# )
+# from backend.feature_normalizer import prepare_features
+
+
+# # ==========================================================
+# # CONFIGURATION
+# # ==========================================================
+
+# # Smaller chunks reduce peak RAM usage.
+# # Start conservatively on Render Free (512 MB RAM).
+# CSV_CHUNK_SIZE = 1000
+
+# # Maximum number of detailed predictions returned
+# # to the frontend.
+# #
+# # The API still analyzes ALL rows.
+# # Only detailed response records are limited.
+# MAX_DETAIL_RESULTS = 10000
+
+# FRONTEND_DIR = (
+#     Path(__file__).resolve().parent.parent
+#     / "frontend"
+#     / "dist"
+# )
+
+# ALLOWED_ORIGINS = [
+#     "http://localhost:5173",
+#     "http://127.0.0.1:5173",
+#     "https://cyberthreatintelligence-frontend.onrender.com",
+# ]
+
+
+# # ==========================================================
+# # APPLICATION
+# # ==========================================================
+
+# app = FastAPI(
+#     title="Cyber Threat Intelligence API",
+#     description="Network attack detection using Random Forest",
+#     version="1.0.0",
+# )
+
+
+# # ==========================================================
+# # CORS
+# # ==========================================================
+
+# app.add_middleware(
+#     CORSMiddleware,
+#     allow_origins=ALLOWED_ORIGINS,
+#     allow_credentials=True,
+#     allow_methods=["GET", "POST", "OPTIONS"],
+#     allow_headers=["*"],
+# )
+
+
+# # ==========================================================
+# # REQUEST LOGGING / TIMING
+# # ==========================================================
+
+# @app.middleware("http")
+# async def log_requests(
+#     request: Request,
+#     call_next,
+# ):
+#     start_time = time.perf_counter()
+
+#     print(
+#         f"[REQUEST START] "
+#         f"{request.method} {request.url.path}",
+#         flush=True,
+#     )
+
+#     try:
+#         response = await call_next(request)
+
+#         elapsed = time.perf_counter() - start_time
+
+#         print(
+#             f"[REQUEST END] "
+#             f"{request.method} "
+#             f"{request.url.path} "
+#             f"-> {response.status_code} "
+#             f"({elapsed:.2f}s)",
+#             flush=True,
+#         )
+
+#         return response
+
+#     except Exception as e:
+#         elapsed = time.perf_counter() - start_time
+
+#         print(
+#             f"[REQUEST ERROR] "
+#             f"{request.method} "
+#             f"{request.url.path} "
+#             f"after {elapsed:.2f}s: "
+#             f"{type(e).__name__}: {e}",
+#             flush=True,
+#         )
+
+#         raise
+
+
+# # ==========================================================
+# # REQUEST MODEL
+# # ==========================================================
+
+# class PredictionRequest(BaseModel):
+#     features: Dict[str, float]
+
+
+# # ==========================================================
+# # ROOT
+# # ==========================================================
+
+# @app.get("/")
+# def root():
+#     index_file = FRONTEND_DIR / "index.html"
+
+#     if not index_file.exists():
+#         raise HTTPException(
+#             status_code=503,
+#             detail="Frontend build not found.",
+#         )
+
+#     return FileResponse(index_file)
+
+
+# # ==========================================================
+# # HEALTH
+# # ==========================================================
+# #
+# # IMPORTANT:
+# # Keep /health extremely cheap.
+# #
+# # Render calls this endpoint frequently.
+# # Do NOT perform expensive model inspection here.
+# # ==========================================================
+
+# @app.get("/health")
+# def health():
+#     return {
+#         "status": "healthy",
+#         "models": {
+#             "multiclass": {
+#                 "name": "random_forest_multiclass",
+#                 "features": 36,
+#                 "classes": 15,
+#             },
+#             "binary": {
+#                 "name": "random_forest_binary",
+#                 "features": 70,
+#                 "classes": 2,
+#             },
+#         },
+#     }
+
+
+# # ==========================================================
+# # SINGLE FLOW PREDICTION
+# # ==========================================================
+
+# @app.post("/predict")
+# def predict(
+#     request: PredictionRequest,
+#     model_type: str = "multiclass",
+# ):
+#     try:
+
+#         # --------------------------------------------------
+#         # Validate model
+#         # --------------------------------------------------
+
+#         if model_type not in [
+#             "binary",
+#             "multiclass",
+#         ]:
+#             raise HTTPException(
+#                 status_code=400,
+#                 detail=(
+#                     "Invalid model_type. "
+#                     "Use 'binary' or 'multiclass'."
+#                 ),
+#             )
+
+#         # --------------------------------------------------
+#         # Clean features
+#         # --------------------------------------------------
+
+#         clean_features = {}
+
+#         for key, value in request.features.items():
+
+#             value = float(value)
+
+#             if not np.isfinite(value):
+#                 value = 0.0
+
+#             clean_features[key] = value
+
+#         # --------------------------------------------------
+#         # Prediction
+#         # --------------------------------------------------
+
+#         return predict_attack(
+#             clean_features,
+#             model_type,
+#         )
+
+#     except HTTPException:
+#         raise
+
+#     except ValueError as e:
+#         raise HTTPException(
+#             status_code=400,
+#             detail=str(e),
+#         )
+
+#     except Exception as e:
+
+#         print(
+#             "[PREDICT] Unexpected error: "
+#             f"{type(e).__name__}: {e}",
+#             flush=True,
+#         )
+
+#         raise HTTPException(
+#             status_code=500,
+#             detail=str(e),
+#         )
+
+
+# # ==========================================================
+# # READ NON-CSV FILE
+# # ==========================================================
+
+# async def read_uploaded_file(
+#     file: UploadFile,
+# ):
+#     filename = (
+#         file.filename or ""
+#     ).lower()
+
+#     extension = Path(
+#         filename
+#     ).suffix.lower()
+
+#     # ------------------------------------------------------
+#     # TSV
+#     # ------------------------------------------------------
+
+#     if extension == ".tsv":
+
+#         return pd.read_csv(
+#             file.file,
+#             sep="\t",
+#         )
+
+#     # ------------------------------------------------------
+#     # EXCEL
+#     # ------------------------------------------------------
+
+#     if extension in [
+#         ".xlsx",
+#         ".xls",
+#     ]:
+
+#         content = await file.read()
+
+#         return pd.read_excel(
+#             BytesIO(content)
+#         )
+
+#     # ------------------------------------------------------
+#     # JSON
+#     # ------------------------------------------------------
+
+#     if extension == ".json":
+
+#         content = await file.read()
+
+#         try:
+
+#             data = json.loads(
+#                 content.decode("utf-8")
+#             )
+
+#         except Exception:
+
+#             raise HTTPException(
+#                 status_code=400,
+#                 detail="Invalid JSON file.",
+#             )
+
+#         if isinstance(data, list):
+#             return pd.DataFrame(data)
+
+#         if isinstance(data, dict):
+#             return pd.DataFrame(data)
+
+#         raise HTTPException(
+#             status_code=400,
+#             detail="Unsupported JSON structure.",
+#         )
+
+#     # ------------------------------------------------------
+#     # UNSUPPORTED
+#     # ------------------------------------------------------
+
+#     raise HTTPException(
+#         status_code=400,
+#         detail=(
+#             "Unsupported file format. "
+#             "Supported formats: "
+#             "CSV, TSV, XLS, XLSX, JSON."
+#         ),
+#     )
+
+
+# # ==========================================================
+# # PREPARE + PREDICT ONE DATAFRAME CHUNK
+# # ==========================================================
+
+# def process_prediction_chunk(
+#     df: pd.DataFrame,
+#     model_type: str,
+# ):
+
+#     if df.empty:
+#         return []
+
+#     X = None
+
+#     try:
+
+#         # --------------------------------------------------
+#         # Prepare features
+#         # --------------------------------------------------
+
+#         X = prepare_features(
+#             df,
+#             model_type,
+#         )
+
+#         # --------------------------------------------------
+#         # Clean invalid values
+#         # --------------------------------------------------
+
+#         X = X.replace(
+#             [np.inf, -np.inf],
+#             np.nan,
+#         )
+
+#         X = X.fillna(0)
+
+#         X = X.clip(
+#             lower=-1e30,
+#             upper=1e30,
+#         )
+
+#         # --------------------------------------------------
+#         # Batch prediction
+#         # --------------------------------------------------
+
+#         predictions = predict_batch(
+#             X,
+#             model_type,
+#         )
+
+#         return predictions
+
+#     finally:
+
+#         # Explicit memory release.
+#         del X
+#         gc.collect()
+
+
+# # ==========================================================
+# # UPDATE PREDICTION SUMMARY
+# # ==========================================================
+
+# def update_prediction_summary(
+#     predictions,
+#     total_flows,
+#     attacks,
+#     benign,
+#     attack_types,
+#     detailed_results,
+# ):
+
+#     for prediction in predictions:
+
+#         total_flows += 1
+
+#         # --------------------------------------------------
+#         # Attack / benign
+#         # --------------------------------------------------
+
+#         is_attack = bool(
+#             prediction["is_attack"]
+#         )
+
+#         if is_attack:
+#             attacks += 1
+#         else:
+#             benign += 1
+
+#         # --------------------------------------------------
+#         # Attack type
+#         # --------------------------------------------------
+
+#         threat_type = prediction[
+#             "threat_type"
+#         ]
+
+#         if threat_type != "BENIGN":
+
+#             attack_types[threat_type] = (
+#                 attack_types.get(
+#                     threat_type,
+#                     0,
+#                 )
+#                 + 1
+#             )
+
+#         # --------------------------------------------------
+#         # Detailed results
+#         # --------------------------------------------------
+
+#         if (
+#             len(detailed_results)
+#             < MAX_DETAIL_RESULTS
+#         ):
+
+#             detailed_results.append(
+#                 {
+#                     "flow": total_flows,
+#                     "prediction": prediction[
+#                         "prediction"
+#                     ],
+#                     "label": prediction[
+#                         "label"
+#                     ],
+#                     "threat_type": prediction[
+#                         "threat_type"
+#                     ],
+#                     "confidence": prediction[
+#                         "probability"
+#                     ],
+#                 }
+#             )
+
+#     return (
+#         total_flows,
+#         attacks,
+#         benign,
+#     )
+
+
+# # ==========================================================
+# # SYNCHRONOUS CSV PROCESSOR
+# # ==========================================================
+# #
+# # This function contains the heavy CPU work.
+# #
+# # It is executed using asyncio.to_thread()
+# # so the Uvicorn event loop remains responsive.
+# # ==========================================================
+
+# def process_csv_sync(
+#     file,
+#     filename,
+#     extension,
+#     model_type,
+# ):
+
+#     request_start = time.perf_counter()
+
+#     total_flows = 0
+#     attacks = 0
+#     benign = 0
+
+#     attack_types = {}
+#     detailed_results = []
+
+#     # ======================================================
+#     # CSV
+#     # ======================================================
+
+#     if extension == ".csv":
+
+#         print(
+#             "[PREDICT-CSV] "
+#             f"Reading CSV in chunks "
+#             f"of {CSV_CHUNK_SIZE} rows",
+#             flush=True,
+#         )
+
+#         csv_start = time.perf_counter()
+
+#         chunk_number = 0
+
+#         try:
+
+#             chunks = pd.read_csv(
+#                 file,
+#                 chunksize=CSV_CHUNK_SIZE,
+#             )
+
+#             for df_chunk in chunks:
+
+#                 chunk_number += 1
+
+#                 chunk_start = (
+#                     time.perf_counter()
+#                 )
+
+#                 print(
+#                     "[PREDICT-CSV] "
+#                     f"START CHUNK "
+#                     f"{chunk_number} | "
+#                     f"rows={len(df_chunk)} | "
+#                     f"processed={total_flows}",
+#                     flush=True,
+#                 )
+
+#                 predictions = None
+
+#                 try:
+
+#                     # ----------------------------------
+#                     # Prediction
+#                     # ----------------------------------
+
+#                     predictions = (
+#                         process_prediction_chunk(
+#                             df_chunk,
+#                             model_type,
+#                         )
+#                     )
+
+#                     # ----------------------------------
+#                     # Statistics
+#                     # ----------------------------------
+
+#                     (
+#                         total_flows,
+#                         attacks,
+#                         benign,
+#                     ) = update_prediction_summary(
+#                         predictions,
+#                         total_flows,
+#                         attacks,
+#                         benign,
+#                         attack_types,
+#                         detailed_results,
+#                     )
+
+#                     chunk_elapsed = (
+#                         time.perf_counter()
+#                         - chunk_start
+#                     )
+
+#                     print(
+#                         "[PREDICT-CSV] "
+#                         f"END CHUNK "
+#                         f"{chunk_number} | "
+#                         f"rows={len(df_chunk)} | "
+#                         f"total={total_flows} | "
+#                         f"attacks={attacks} | "
+#                         f"time={chunk_elapsed:.2f}s",
+#                         flush=True,
+#                     )
+
+#                 finally:
+
+#                     # ----------------------------------
+#                     # Aggressive memory cleanup
+#                     # ----------------------------------
+
+#                     del predictions
+#                     del df_chunk
+
+#                     gc.collect()
+
+#         except pd.errors.EmptyDataError:
+
+#             raise HTTPException(
+#                 status_code=400,
+#                 detail=(
+#                     "The uploaded CSV "
+#                     "file is empty."
+#                 ),
+#             )
+
+#         csv_elapsed = (
+#             time.perf_counter()
+#             - csv_start
+#         )
+
+#         print(
+#             "[PREDICT-CSV] "
+#             f"CSV processing complete | "
+#             f"rows={total_flows} | "
+#             f"time={csv_elapsed:.2f}s",
+#             flush=True,
+#         )
+
+#     # ======================================================
+#     # TSV
+#     # ======================================================
+
+#     elif extension == ".tsv":
+
+#         print(
+#             "[PREDICT-CSV] Processing TSV",
+#             flush=True,
+#         )
+
+#         df = pd.read_csv(
+#             file,
+#             sep="\t",
+#         )
+
+#         if df.empty:
+
+#             del df
+#             gc.collect()
+
+#             raise HTTPException(
+#                 status_code=400,
+#                 detail=(
+#                     "The uploaded file "
+#                     "is empty."
+#                 ),
+#             )
+
+#         predictions = None
+
+#         try:
+
+#             predictions = (
+#                 process_prediction_chunk(
+#                     df,
+#                     model_type,
+#                 )
+#             )
+
+#             (
+#                 total_flows,
+#                 attacks,
+#                 benign,
+#             ) = update_prediction_summary(
+#                 predictions,
+#                 total_flows,
+#                 attacks,
+#                 benign,
+#                 attack_types,
+#                 detailed_results,
+#             )
+
+#         finally:
+
+#             del predictions
+#             del df
+#             gc.collect()
+
+#     # ======================================================
+#     # EXCEL / JSON
+#     # ======================================================
+
+#     elif extension in [
+#         ".xlsx",
+#         ".xls",
+#         ".json",
+#     ]:
+
+#         print(
+#             "[PREDICT-CSV] "
+#             f"Processing {extension}",
+#             flush=True,
+#         )
+
+#         if extension == ".json":
+
+#             content = file.read()
+
+#             try:
+
+#                 data = json.loads(
+#                     content.decode("utf-8")
+#                 )
+
+#             except Exception:
+
+#                 raise HTTPException(
+#                     status_code=400,
+#                     detail="Invalid JSON file.",
+#                 )
+
+#             if isinstance(data, list):
+
+#                 df = pd.DataFrame(data)
+
+#             elif isinstance(data, dict):
+
+#                 df = pd.DataFrame(data)
+
+#             else:
+
+#                 raise HTTPException(
+#                     status_code=400,
+#                     detail=(
+#                         "Unsupported JSON "
+#                         "structure."
+#                     ),
+#                 )
+
+#         else:
+
+#             content = file.read()
+
+#             df = pd.read_excel(
+#                 BytesIO(content)
+#             )
+
+#             del content
+
+#         if df.empty:
+
+#             del df
+#             gc.collect()
+
+#             raise HTTPException(
+#                 status_code=400,
+#                 detail=(
+#                     "The uploaded file "
+#                     "is empty."
+#                 ),
+#             )
+
+#         predictions = None
+
+#         try:
+
+#             predictions = (
+#                 process_prediction_chunk(
+#                     df,
+#                     model_type,
+#                 )
+#             )
+
+#             (
+#                 total_flows,
+#                 attacks,
+#                 benign,
+#             ) = update_prediction_summary(
+#                 predictions,
+#                 total_flows,
+#                 attacks,
+#                 benign,
+#                 attack_types,
+#                 detailed_results,
+#             )
+
+#         finally:
+
+#             del predictions
+#             del df
+#             gc.collect()
+
+#     # ======================================================
+#     # UNSUPPORTED
+#     # ======================================================
+
+#     else:
+
+#         raise HTTPException(
+#             status_code=400,
+#             detail=(
+#                 "Unsupported file format. "
+#                 "Supported formats: "
+#                 "CSV, TSV, XLS, XLSX, JSON."
+#             ),
+#         )
+
+#     # ======================================================
+#     # VALIDATE RESULT
+#     # ======================================================
+
+#     if total_flows == 0:
+
+#         raise HTTPException(
+#             status_code=400,
+#             detail=(
+#                 "The uploaded file "
+#                 "contains no valid rows."
+#             ),
+#         )
+
+#     # ======================================================
+#     # ATTACK RATE
+#     # ======================================================
+
+#     attack_rate = (
+#         attacks / total_flows * 100
+#         if total_flows > 0
+#         else 0
+#     )
+
+#     # ======================================================
+#     # SORT ATTACK TYPES
+#     # ======================================================
+
+#     attack_types = dict(
+#         sorted(
+#             attack_types.items(),
+#             key=lambda item: item[1],
+#             reverse=True,
+#         )
+#     )
+
+#     # ======================================================
+#     # FINAL TIMING
+#     # ======================================================
+
+#     total_elapsed = (
+#         time.perf_counter()
+#         - request_start
+#     )
+
+#     results_truncated = (
+#         total_flows
+#         > MAX_DETAIL_RESULTS
+#     )
+
+#     # ======================================================
+#     # FINAL LOG
+#     # ======================================================
+
+#     print(
+#         "[PREDICT-CSV] "
+#         f"FINISHED | "
+#         f"rows={total_flows} | "
+#         f"attacks={attacks} | "
+#         f"benign={benign} | "
+#         f"time={total_elapsed:.2f}s",
+#         flush=True,
+#     )
+
+#     print(
+#         "[PREDICT-CSV] "
+#         f"Detailed results: "
+#         f"{len(detailed_results)} / "
+#         f"{total_flows}",
+#         flush=True,
+#     )
+
+#     # ======================================================
+#     # RESPONSE
+#     # ======================================================
+
+#     return {
+#         "filename": filename,
+#         "file_type": extension,
+#         "model_type": model_type,
+#         "total_flows": total_flows,
+#         "attacks": attacks,
+#         "benign": benign,
+#         "attack_rate": round(
+#             attack_rate,
+#             4,
+#         ),
+#         "attack_types": attack_types,
+#         "results": detailed_results,
+#         "results_returned": len(
+#             detailed_results
+#         ),
+#         "results_truncated": results_truncated,
+#         "processing_time_seconds": round(
+#             total_elapsed,
+#             2,
+#         ),
+#     }
+
+
+# # ==========================================================
+# # CSV PREDICTION ENDPOINT
+# # ==========================================================
+# #
+# # IMPORTANT:
+# #
+# # This endpoint is ASYNC.
+# #
+# # Heavy synchronous work is moved to a worker thread
+# # using asyncio.to_thread().
+# #
+# # This allows /health to continue responding.
+# # ==========================================================
+
+# @app.post("/predict-csv")
+# async def predict_csv(
+#     file: UploadFile = File(...),
+#     model_type: str = "multiclass",
+# ):
+
+#     print(
+#         "[PREDICT-CSV] Endpoint started",
+#         flush=True,
+#     )
+
+#     try:
+
+#         # ==================================================
+#         # VALIDATE MODEL
+#         # ==================================================
+
+#         if model_type not in [
+#             "binary",
+#             "multiclass",
+#         ]:
+
+#             raise HTTPException(
+#                 status_code=400,
+#                 detail=(
+#                     "Invalid model_type. "
+#                     "Use 'binary' or "
+#                     "'multiclass'."
+#                 ),
+#             )
+
+#         # ==================================================
+#         # VALIDATE FILE
+#         # ==================================================
+
+#         if not file.filename:
+
+#             raise HTTPException(
+#                 status_code=400,
+#                 detail="Filename is missing.",
+#             )
+
+#         filename = file.filename
+
+#         extension = (
+#             Path(filename)
+#             .suffix
+#             .lower()
+#         )
+
+#         print(
+#             f"[PREDICT-CSV] "
+#             f"File: {filename}",
+#             flush=True,
+#         )
+
+#         print(
+#             f"[PREDICT-CSV] "
+#             f"Model: {model_type}",
+#             flush=True,
+#         )
+
+#         # ==================================================
+#         # MOVE FILE PROCESSING TO THREAD
+#         # ==================================================
+
+#         print(
+#             "[PREDICT-CSV] "
+#             "Starting background thread "
+#             "for heavy processing",
+#             flush=True,
+#         )
+
+#         result = await asyncio.to_thread(
+#             process_csv_sync,
+#             file.file,
+#             filename,
+#             extension,
+#             model_type,
+#         )
+
+#         print(
+#             "[PREDICT-CSV] "
+#             "Thread processing finished",
+#             flush=True,
+#         )
+
+#         return result
+
+#     except HTTPException:
+#         raise
+
+#     except ValueError as e:
+
+#         print(
+#             "[PREDICT-CSV] "
+#             f"ValueError: {e}",
+#             flush=True,
+#         )
+
+#         raise HTTPException(
+#             status_code=400,
+#             detail=str(e),
+#         )
+
+#     except Exception as e:
+
+#         print(
+#             "[PREDICT-CSV] "
+#             f"Unexpected error: "
+#             f"{type(e).__name__}: {e}",
+#             flush=True,
+#         )
+
+#         raise HTTPException(
+#             status_code=500,
+#             detail=str(e),
+#         )
+
+#     finally:
+
+#         try:
+#             await file.close()
+#         except Exception:
+#             pass
+
+#         gc.collect()
+
+
+# # ==========================================================
+# # FRONTEND STATIC FILES
+# # ==========================================================
+
+# if FRONTEND_DIR.exists():
+
+#     app.mount(
+#         "/",
+#         StaticFiles(
+#             directory=FRONTEND_DIR,
+#             html=True,
+#         ),
+#         name="frontend",
+#     )
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 import gc
 import json
 import time
@@ -3332,28 +4431,14 @@ from backend.feature_normalizer import prepare_features
 # CONFIGURATION
 # ==========================================================
 
-# Smaller chunks reduce peak RAM usage.
-# Start conservatively on Render Free (512 MB RAM).
-CSV_CHUNK_SIZE = 1000
+# Smaller chunks reduce peak RAM usage on Render.
+CSV_CHUNK_SIZE = 2000
 
-# Maximum number of detailed predictions returned
+# Maximum number of detailed prediction records returned
 # to the frontend.
 #
 # The API still analyzes ALL rows.
-# Only detailed response records are limited.
 MAX_DETAIL_RESULTS = 10000
-
-FRONTEND_DIR = (
-    Path(__file__).resolve().parent.parent
-    / "frontend"
-    / "dist"
-)
-
-ALLOWED_ORIGINS = [
-    "http://localhost:5173",
-    "http://127.0.0.1:5173",
-    "https://cyberthreatintelligence-frontend.onrender.com",
-]
 
 
 # ==========================================================
@@ -3368,8 +4453,34 @@ app = FastAPI(
 
 
 # ==========================================================
+# FRONTEND
+# ==========================================================
+
+FRONTEND_DIR = (
+    Path(__file__).resolve().parent.parent
+    / "frontend"
+    / "dist"
+)
+
+
+# ==========================================================
 # CORS
 # ==========================================================
+
+# IMPORTANT:
+# The frontend origin must match EXACTLY.
+#
+# Frontend:
+# https://cyberthreatintelligence-frontend.onrender.com
+#
+# Backend:
+# https://cyberthreatintelligence-qx03.onrender.com
+
+ALLOWED_ORIGINS = [
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+    "https://cyberthreatintelligence-frontend.onrender.com",
+]
 
 app.add_middleware(
     CORSMiddleware,
@@ -3400,7 +4511,10 @@ async def log_requests(
     try:
         response = await call_next(request)
 
-        elapsed = time.perf_counter() - start_time
+        elapsed = (
+            time.perf_counter()
+            - start_time
+        )
 
         print(
             f"[REQUEST END] "
@@ -3414,7 +4528,10 @@ async def log_requests(
         return response
 
     except Exception as e:
-        elapsed = time.perf_counter() - start_time
+        elapsed = (
+            time.perf_counter()
+            - start_time
+        )
 
         print(
             f"[REQUEST ERROR] "
@@ -3441,7 +4558,7 @@ class PredictionRequest(BaseModel):
 # ==========================================================
 
 @app.get("/")
-def root():
+async def root():
     index_file = FRONTEND_DIR / "index.html"
 
     if not index_file.exists():
@@ -3458,16 +4575,24 @@ def root():
 # ==========================================================
 #
 # IMPORTANT:
-# Keep /health extremely cheap.
 #
-# Render calls this endpoint frequently.
-# Do NOT perform expensive model inspection here.
+# This endpoint MUST remain extremely lightweight.
+#
+# Render expects the health endpoint to respond within
+# approximately 5 seconds.
+#
+# DO NOT load models here.
+# DO NOT run predictions here.
+# DO NOT read CSV files here.
+# DO NOT perform expensive computations here.
+#
 # ==========================================================
 
 @app.get("/health")
-def health():
+async def health():
     return {
         "status": "healthy",
+        "service": "cyber-threat-intelligence-api",
         "models": {
             "multiclass": {
                 "name": "random_forest_multiclass",
@@ -3476,7 +4601,7 @@ def health():
             },
             "binary": {
                 "name": "random_forest_binary",
-                "features": 70,
+                "features": 36,
                 "classes": 2,
             },
         },
@@ -3538,6 +4663,7 @@ def predict(
         raise
 
     except ValueError as e:
+
         raise HTTPException(
             status_code=400,
             detail=str(e),
@@ -3564,6 +4690,7 @@ def predict(
 async def read_uploaded_file(
     file: UploadFile,
 ):
+
     filename = (
         file.filename or ""
     ).lower()
@@ -3656,51 +4783,44 @@ def process_prediction_chunk(
     if df.empty:
         return []
 
-    X = None
+    # ------------------------------------------------------
+    # Prepare features
+    # ------------------------------------------------------
 
-    try:
+    X = prepare_features(
+        df,
+        model_type,
+    )
 
-        # --------------------------------------------------
-        # Prepare features
-        # --------------------------------------------------
+    # ------------------------------------------------------
+    # Clean invalid values
+    # ------------------------------------------------------
 
-        X = prepare_features(
-            df,
-            model_type,
-        )
+    X = X.replace(
+        [np.inf, -np.inf],
+        np.nan,
+    )
 
-        # --------------------------------------------------
-        # Clean invalid values
-        # --------------------------------------------------
+    X = X.fillna(0)
 
-        X = X.replace(
-            [np.inf, -np.inf],
-            np.nan,
-        )
+    X = X.clip(
+        lower=-1e30,
+        upper=1e30,
+    )
 
-        X = X.fillna(0)
+    # ------------------------------------------------------
+    # Batch prediction
+    # ------------------------------------------------------
 
-        X = X.clip(
-            lower=-1e30,
-            upper=1e30,
-        )
+    predictions = predict_batch(
+        X,
+        model_type,
+    )
 
-        # --------------------------------------------------
-        # Batch prediction
-        # --------------------------------------------------
+    # Explicitly release feature matrix
+    del X
 
-        predictions = predict_batch(
-            X,
-            model_type,
-        )
-
-        return predictions
-
-    finally:
-
-        # Explicit memory release.
-        del X
-        gc.collect()
+    return predictions
 
 
 # ==========================================================
@@ -3737,13 +4857,15 @@ def update_prediction_summary(
         # Attack type
         # --------------------------------------------------
 
-        threat_type = prediction[
-            "threat_type"
-        ]
+        threat_type = (
+            prediction["threat_type"]
+        )
 
         if threat_type != "BENIGN":
 
-            attack_types[threat_type] = (
+            attack_types[
+                threat_type
+            ] = (
                 attack_types.get(
                     threat_type,
                     0,
@@ -3786,451 +4908,18 @@ def update_prediction_summary(
 
 
 # ==========================================================
-# SYNCHRONOUS CSV PROCESSOR
-# ==========================================================
-#
-# This function contains the heavy CPU work.
-#
-# It is executed using asyncio.to_thread()
-# so the Uvicorn event loop remains responsive.
-# ==========================================================
-
-def process_csv_sync(
-    file,
-    filename,
-    extension,
-    model_type,
-):
-
-    request_start = time.perf_counter()
-
-    total_flows = 0
-    attacks = 0
-    benign = 0
-
-    attack_types = {}
-    detailed_results = []
-
-    # ======================================================
-    # CSV
-    # ======================================================
-
-    if extension == ".csv":
-
-        print(
-            "[PREDICT-CSV] "
-            f"Reading CSV in chunks "
-            f"of {CSV_CHUNK_SIZE} rows",
-            flush=True,
-        )
-
-        csv_start = time.perf_counter()
-
-        chunk_number = 0
-
-        try:
-
-            chunks = pd.read_csv(
-                file,
-                chunksize=CSV_CHUNK_SIZE,
-            )
-
-            for df_chunk in chunks:
-
-                chunk_number += 1
-
-                chunk_start = (
-                    time.perf_counter()
-                )
-
-                print(
-                    "[PREDICT-CSV] "
-                    f"START CHUNK "
-                    f"{chunk_number} | "
-                    f"rows={len(df_chunk)} | "
-                    f"processed={total_flows}",
-                    flush=True,
-                )
-
-                predictions = None
-
-                try:
-
-                    # ----------------------------------
-                    # Prediction
-                    # ----------------------------------
-
-                    predictions = (
-                        process_prediction_chunk(
-                            df_chunk,
-                            model_type,
-                        )
-                    )
-
-                    # ----------------------------------
-                    # Statistics
-                    # ----------------------------------
-
-                    (
-                        total_flows,
-                        attacks,
-                        benign,
-                    ) = update_prediction_summary(
-                        predictions,
-                        total_flows,
-                        attacks,
-                        benign,
-                        attack_types,
-                        detailed_results,
-                    )
-
-                    chunk_elapsed = (
-                        time.perf_counter()
-                        - chunk_start
-                    )
-
-                    print(
-                        "[PREDICT-CSV] "
-                        f"END CHUNK "
-                        f"{chunk_number} | "
-                        f"rows={len(df_chunk)} | "
-                        f"total={total_flows} | "
-                        f"attacks={attacks} | "
-                        f"time={chunk_elapsed:.2f}s",
-                        flush=True,
-                    )
-
-                finally:
-
-                    # ----------------------------------
-                    # Aggressive memory cleanup
-                    # ----------------------------------
-
-                    del predictions
-                    del df_chunk
-
-                    gc.collect()
-
-        except pd.errors.EmptyDataError:
-
-            raise HTTPException(
-                status_code=400,
-                detail=(
-                    "The uploaded CSV "
-                    "file is empty."
-                ),
-            )
-
-        csv_elapsed = (
-            time.perf_counter()
-            - csv_start
-        )
-
-        print(
-            "[PREDICT-CSV] "
-            f"CSV processing complete | "
-            f"rows={total_flows} | "
-            f"time={csv_elapsed:.2f}s",
-            flush=True,
-        )
-
-    # ======================================================
-    # TSV
-    # ======================================================
-
-    elif extension == ".tsv":
-
-        print(
-            "[PREDICT-CSV] Processing TSV",
-            flush=True,
-        )
-
-        df = pd.read_csv(
-            file,
-            sep="\t",
-        )
-
-        if df.empty:
-
-            del df
-            gc.collect()
-
-            raise HTTPException(
-                status_code=400,
-                detail=(
-                    "The uploaded file "
-                    "is empty."
-                ),
-            )
-
-        predictions = None
-
-        try:
-
-            predictions = (
-                process_prediction_chunk(
-                    df,
-                    model_type,
-                )
-            )
-
-            (
-                total_flows,
-                attacks,
-                benign,
-            ) = update_prediction_summary(
-                predictions,
-                total_flows,
-                attacks,
-                benign,
-                attack_types,
-                detailed_results,
-            )
-
-        finally:
-
-            del predictions
-            del df
-            gc.collect()
-
-    # ======================================================
-    # EXCEL / JSON
-    # ======================================================
-
-    elif extension in [
-        ".xlsx",
-        ".xls",
-        ".json",
-    ]:
-
-        print(
-            "[PREDICT-CSV] "
-            f"Processing {extension}",
-            flush=True,
-        )
-
-        if extension == ".json":
-
-            content = file.read()
-
-            try:
-
-                data = json.loads(
-                    content.decode("utf-8")
-                )
-
-            except Exception:
-
-                raise HTTPException(
-                    status_code=400,
-                    detail="Invalid JSON file.",
-                )
-
-            if isinstance(data, list):
-
-                df = pd.DataFrame(data)
-
-            elif isinstance(data, dict):
-
-                df = pd.DataFrame(data)
-
-            else:
-
-                raise HTTPException(
-                    status_code=400,
-                    detail=(
-                        "Unsupported JSON "
-                        "structure."
-                    ),
-                )
-
-        else:
-
-            content = file.read()
-
-            df = pd.read_excel(
-                BytesIO(content)
-            )
-
-            del content
-
-        if df.empty:
-
-            del df
-            gc.collect()
-
-            raise HTTPException(
-                status_code=400,
-                detail=(
-                    "The uploaded file "
-                    "is empty."
-                ),
-            )
-
-        predictions = None
-
-        try:
-
-            predictions = (
-                process_prediction_chunk(
-                    df,
-                    model_type,
-                )
-            )
-
-            (
-                total_flows,
-                attacks,
-                benign,
-            ) = update_prediction_summary(
-                predictions,
-                total_flows,
-                attacks,
-                benign,
-                attack_types,
-                detailed_results,
-            )
-
-        finally:
-
-            del predictions
-            del df
-            gc.collect()
-
-    # ======================================================
-    # UNSUPPORTED
-    # ======================================================
-
-    else:
-
-        raise HTTPException(
-            status_code=400,
-            detail=(
-                "Unsupported file format. "
-                "Supported formats: "
-                "CSV, TSV, XLS, XLSX, JSON."
-            ),
-        )
-
-    # ======================================================
-    # VALIDATE RESULT
-    # ======================================================
-
-    if total_flows == 0:
-
-        raise HTTPException(
-            status_code=400,
-            detail=(
-                "The uploaded file "
-                "contains no valid rows."
-            ),
-        )
-
-    # ======================================================
-    # ATTACK RATE
-    # ======================================================
-
-    attack_rate = (
-        attacks / total_flows * 100
-        if total_flows > 0
-        else 0
-    )
-
-    # ======================================================
-    # SORT ATTACK TYPES
-    # ======================================================
-
-    attack_types = dict(
-        sorted(
-            attack_types.items(),
-            key=lambda item: item[1],
-            reverse=True,
-        )
-    )
-
-    # ======================================================
-    # FINAL TIMING
-    # ======================================================
-
-    total_elapsed = (
-        time.perf_counter()
-        - request_start
-    )
-
-    results_truncated = (
-        total_flows
-        > MAX_DETAIL_RESULTS
-    )
-
-    # ======================================================
-    # FINAL LOG
-    # ======================================================
-
-    print(
-        "[PREDICT-CSV] "
-        f"FINISHED | "
-        f"rows={total_flows} | "
-        f"attacks={attacks} | "
-        f"benign={benign} | "
-        f"time={total_elapsed:.2f}s",
-        flush=True,
-    )
-
-    print(
-        "[PREDICT-CSV] "
-        f"Detailed results: "
-        f"{len(detailed_results)} / "
-        f"{total_flows}",
-        flush=True,
-    )
-
-    # ======================================================
-    # RESPONSE
-    # ======================================================
-
-    return {
-        "filename": filename,
-        "file_type": extension,
-        "model_type": model_type,
-        "total_flows": total_flows,
-        "attacks": attacks,
-        "benign": benign,
-        "attack_rate": round(
-            attack_rate,
-            4,
-        ),
-        "attack_types": attack_types,
-        "results": detailed_results,
-        "results_returned": len(
-            detailed_results
-        ),
-        "results_truncated": results_truncated,
-        "processing_time_seconds": round(
-            total_elapsed,
-            2,
-        ),
-    }
-
-
-# ==========================================================
-# CSV PREDICTION ENDPOINT
-# ==========================================================
-#
-# IMPORTANT:
-#
-# This endpoint is ASYNC.
-#
-# Heavy synchronous work is moved to a worker thread
-# using asyncio.to_thread().
-#
-# This allows /health to continue responding.
+# CSV PREDICTION
 # ==========================================================
 
 @app.post("/predict-csv")
-async def predict_csv(
+def predict_csv(
     file: UploadFile = File(...),
     model_type: str = "multiclass",
 ):
+
+    request_start = (
+        time.perf_counter()
+    )
 
     print(
         "[PREDICT-CSV] Endpoint started",
@@ -4289,34 +4978,384 @@ async def predict_csv(
         )
 
         # ==================================================
-        # MOVE FILE PROCESSING TO THREAD
+        # STATISTICS
+        # ==================================================
+
+        total_flows = 0
+        attacks = 0
+        benign = 0
+
+        attack_types = {}
+
+        detailed_results = []
+
+        # ==================================================
+        # CSV
+        # ==================================================
+
+        if extension == ".csv":
+
+            print(
+                "[PREDICT-CSV] "
+                f"Reading CSV in chunks "
+                f"of {CSV_CHUNK_SIZE} rows",
+                flush=True,
+            )
+
+            csv_start = (
+                time.perf_counter()
+            )
+
+            chunk_number = 0
+
+            try:
+
+                chunks = pd.read_csv(
+                    file.file,
+                    chunksize=CSV_CHUNK_SIZE,
+                )
+
+                for df_chunk in chunks:
+
+                    chunk_number += 1
+
+                    chunk_start = (
+                        time.perf_counter()
+                    )
+
+                    print(
+                        "[PREDICT-CSV] "
+                        f"START CHUNK "
+                        f"{chunk_number} | "
+                        f"rows={len(df_chunk)} | "
+                        f"processed={total_flows}",
+                        flush=True,
+                    )
+
+                    # --------------------------------------
+                    # Prediction
+                    # --------------------------------------
+
+                    predictions = (
+                        process_prediction_chunk(
+                            df_chunk,
+                            model_type,
+                        )
+                    )
+
+                    # --------------------------------------
+                    # Statistics
+                    # --------------------------------------
+
+                    (
+                        total_flows,
+                        attacks,
+                        benign,
+                    ) = update_prediction_summary(
+                        predictions,
+                        total_flows,
+                        attacks,
+                        benign,
+                        attack_types,
+                        detailed_results,
+                    )
+
+                    # --------------------------------------
+                    # Timing
+                    # --------------------------------------
+
+                    chunk_elapsed = (
+                        time.perf_counter()
+                        - chunk_start
+                    )
+
+                    print(
+                        "[PREDICT-CSV] "
+                        f"END CHUNK "
+                        f"{chunk_number} | "
+                        f"rows={len(df_chunk)} | "
+                        f"total={total_flows} | "
+                        f"attacks={attacks} | "
+                        f"time={chunk_elapsed:.2f}s",
+                        flush=True,
+                    )
+
+                    # --------------------------------------
+                    # Explicit memory release
+                    # --------------------------------------
+
+                    del predictions
+                    del df_chunk
+
+                    # Force garbage collection
+                    gc.collect()
+
+            except pd.errors.EmptyDataError:
+
+                raise HTTPException(
+                    status_code=400,
+                    detail=(
+                        "The uploaded CSV "
+                        "file is empty."
+                    ),
+                )
+
+            csv_elapsed = (
+                time.perf_counter()
+                - csv_start
+            )
+
+            print(
+                "[PREDICT-CSV] "
+                f"CSV processing complete | "
+                f"rows={total_flows} | "
+                f"time={csv_elapsed:.2f}s",
+                flush=True,
+            )
+
+        # ==================================================
+        # TSV
+        # ==================================================
+
+        elif extension == ".tsv":
+
+            print(
+                "[PREDICT-CSV] "
+                "Processing TSV",
+                flush=True,
+            )
+
+            df = await read_uploaded_file(
+                file
+            )
+
+            if df.empty:
+
+                raise HTTPException(
+                    status_code=400,
+                    detail=(
+                        "The uploaded file "
+                        "is empty."
+                    ),
+                )
+
+            predictions = (
+                process_prediction_chunk(
+                    df,
+                    model_type,
+                )
+            )
+
+            (
+                total_flows,
+                attacks,
+                benign,
+            ) = update_prediction_summary(
+                predictions,
+                total_flows,
+                attacks,
+                benign,
+                attack_types,
+                detailed_results,
+            )
+
+            del predictions
+            del df
+
+            gc.collect()
+
+        # ==================================================
+        # EXCEL / JSON
+        # ==================================================
+
+        elif extension in [
+            ".xlsx",
+            ".xls",
+            ".json",
+        ]:
+
+            print(
+                "[PREDICT-CSV] "
+                f"Processing {extension}",
+                flush=True,
+            )
+
+            df = await read_uploaded_file(
+                file
+            )
+
+            if df.empty:
+
+                raise HTTPException(
+                    status_code=400,
+                    detail=(
+                        "The uploaded file "
+                        "is empty."
+                    ),
+                )
+
+            predictions = (
+                process_prediction_chunk(
+                    df,
+                    model_type,
+                )
+            )
+
+            (
+                total_flows,
+                attacks,
+                benign,
+            ) = update_prediction_summary(
+                predictions,
+                total_flows,
+                attacks,
+                benign,
+                attack_types,
+                detailed_results,
+            )
+
+            del predictions
+            del df
+
+            gc.collect()
+
+        # ==================================================
+        # UNSUPPORTED
+        # ==================================================
+
+        else:
+
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    "Unsupported file format. "
+                    "Supported formats: "
+                    "CSV, TSV, XLS, XLSX, JSON."
+                ),
+            )
+
+        # ==================================================
+        # VALIDATE RESULT
+        # ==================================================
+
+        if total_flows == 0:
+
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    "The uploaded file "
+                    "contains no valid rows."
+                ),
+            )
+
+        # ==================================================
+        # ATTACK RATE
+        # ==================================================
+
+        attack_rate = (
+            attacks
+            / total_flows
+            * 100
+            if total_flows > 0
+            else 0
+        )
+
+        # ==================================================
+        # SORT ATTACK TYPES
+        # ==================================================
+
+        attack_types = dict(
+            sorted(
+                attack_types.items(),
+                key=lambda item: item[1],
+                reverse=True,
+            )
+        )
+
+        # ==================================================
+        # FINAL TIMING
+        # ==================================================
+
+        total_elapsed = (
+            time.perf_counter()
+            - request_start
+        )
+
+        results_truncated = (
+            total_flows
+            > MAX_DETAIL_RESULTS
+        )
+
+        # ==================================================
+        # FINAL LOG
         # ==================================================
 
         print(
             "[PREDICT-CSV] "
-            "Starting background thread "
-            "for heavy processing",
+            f"FINISHED | "
+            f"rows={total_flows} | "
+            f"attacks={attacks} | "
+            f"benign={benign} | "
+            f"time={total_elapsed:.2f}s",
             flush=True,
-        )
-
-        result = await asyncio.to_thread(
-            process_csv_sync,
-            file.file,
-            filename,
-            extension,
-            model_type,
         )
 
         print(
             "[PREDICT-CSV] "
-            "Thread processing finished",
+            f"Detailed results: "
+            f"{len(detailed_results)} / "
+            f"{total_flows}",
             flush=True,
         )
 
-        return result
+        # ==================================================
+        # RESPONSE
+        # ==================================================
+
+        return {
+            "filename": filename,
+            "file_type": extension,
+            "model_type": model_type,
+
+            "total_flows": total_flows,
+
+            "attacks": attacks,
+
+            "benign": benign,
+
+            "attack_rate": round(
+                attack_rate,
+                4,
+            ),
+
+            "attack_types": attack_types,
+
+            "results": detailed_results,
+
+            "results_returned": len(
+                detailed_results
+            ),
+
+            "results_truncated": (
+                results_truncated
+            ),
+
+            "processing_time_seconds": round(
+                total_elapsed,
+                2,
+            ),
+        }
+
+    # ======================================================
+    # HTTP ERROR
+    # ======================================================
 
     except HTTPException:
         raise
+
+    # ======================================================
+    # VALUE ERROR
+    # ======================================================
 
     except ValueError as e:
 
@@ -4330,6 +5369,10 @@ async def predict_csv(
             status_code=400,
             detail=str(e),
         )
+
+    # ======================================================
+    # UNEXPECTED ERROR
+    # ======================================================
 
     except Exception as e:
 
@@ -4347,6 +5390,7 @@ async def predict_csv(
 
     finally:
 
+        # Release uploaded file resources
         try:
             await file.close()
         except Exception:
