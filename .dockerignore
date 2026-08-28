@@ -1,18 +1,12 @@
-.venv
-__pycache__
+.venv/
+__pycache__/
 *.pyc
-.git
+
+.git/
 .gitignore
 
-frontend/node_modules
-frontend/src
-frontend/public
-frontend/.gitignore
-frontend/package.json
-frontend/package-lock.json
-frontend/tsconfig.json
-
-data
+data/
+frontend/
 *.csv
 *.xlsx
 *.xls
@@ -20,3 +14,5 @@ data
 Dockerfile
 docker-compose.yml
 README.md
+
+.env

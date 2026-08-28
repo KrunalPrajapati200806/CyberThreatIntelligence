@@ -24,3 +24,8 @@ frontend/build/
 data/validation/*_binary.csv
 data/validation/unseen_friday_test.csv
 
+
+frontend/.env
+frontend/.env.local
+
+data/validation/*.csv

@@ -18,6 +18,34 @@ function Analytics({ result }) {
 
   const data = result || {};
 
+    /*
+   * ============================================================
+   * DETECTION MODE
+   * ============================================================
+   */
+
+  const modelType =
+    data.model_type ||
+    data.modelType ||
+    "multiclass";
+
+  const isBinary =
+    modelType === "binary";
+
+  const detectionMode = isBinary
+    ? {
+        label: "BINARY DETECTION",
+        shortLabel: "BINARY",
+        description:
+          "Benign vs malicious detection",
+      }
+    : {
+        label: "MULTICLASS CLASSIFICATION",
+        shortLabel: "MULTICLASS",
+        description:
+          "Specific attack identification",
+      };
+
   const totalFlows = Number(
     data.total_flows ??
       data.totalFlows ??
@@ -120,6 +148,7 @@ function Analytics({ result }) {
   if (!totalFlows && !entries.length) {
     return (
       <div className="analytics-v2-page">
+        
         <div className="analytics-v2-header">
           <div>
             <span className="analytics-v2-eyebrow">
@@ -162,7 +191,7 @@ function Analytics({ result }) {
           HEADER
          ====================================================== */}
 
-      <div className="analytics-v2-header">
+      {/* <div className="analytics-v2-header">
         <div>
           <span className="analytics-v2-eyebrow">
             SECURITY ANALYTICS
@@ -180,7 +209,53 @@ function Analytics({ result }) {
           <span />
           LIVE ANALYSIS
         </div>
+      </div> */}
+      <div className="analytics-v2-header">
+        <div>
+          <span className="analytics-v2-eyebrow">
+            SECURITY ANALYTICS
+          </span>
+
+          <h1>Network Analytics</h1>
+
+          <p>
+            Visual intelligence from the latest
+            network traffic analysis.
+          </p>
+        </div>
+
+        <div className="analytics-v2-header-controls">
+
+          <div className="analytics-v2-status">
+            <span />
+            LIVE ANALYSIS
+          </div>
+
+          <div
+            className={`analytics-v2-mode-badge ${
+              isBinary
+                ? "binary"
+                : "multiclass"
+            }`}
+          >
+            <div className="analytics-v2-mode-dot" />
+
+            <div className="analytics-v2-mode-content">
+
+              <strong>
+                {detectionMode.shortLabel}
+              </strong>
+
+              <span>
+                {detectionMode.description}
+              </span>
+
+            </div>
+          </div>
+
+        </div>
       </div>
+
 
 
       {/* ======================================================
